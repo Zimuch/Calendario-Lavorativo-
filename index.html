@@ -575,6 +575,10 @@
                     <div class="stat-label">Straordinari</div>
                     <div class="stat-value" id="monthTotalOvertimePay">€0.00</div>
                 </div>
+                <div class="stat-box warning">
+                    <div class="stat-label">Maggiorazione (+20%)</div>
+                    <div class="stat-value" id="monthTotalOverageHoursPay">€0.00</div>
+                </div>
                 <div class="stat-box success">
                     <div class="stat-label">Totale Mese</div>
                     <div class="stat-value" id="monthTotalWeekPay">€0.00</div>
@@ -1002,7 +1006,8 @@
             updateMonthlySummary() {
                 const currentMonth = this.currentWeekStart.getMonth();
                 const currentYear = this.currentWeekStart.getFullYear();
-                let totalHours = 0, totalBasePay = 0, totalOvertimePay = 0;
+                let totalHours = 0, totalBasePay = 0, totalOvertimePay = 0, normalHours = 0;
+                const globalHourlyRate = parseFloat(document.getElementById('hourlyRate').value) || 0;
 
                 for (const dateStr in this.shifts) {
                     const [year, month, day] = dateStr.split('-').map(Number);
@@ -1041,16 +1046,40 @@
                         }
 
                         totalHours += hours + overtimeHours;
+                        normalHours += hours;
                         totalBasePay += basePay;
                         totalOvertimePay += overtimePay;
                     }
                 }
 
-                const totalMonthPay = totalBasePay + totalOvertimePay;
+                // Calcola maggiorazione +20% per ore oltre 24 per settimana
+                let overageHoursPay = 0;
+                const weekStart = new Date(this.currentWeekStart);
+                for (let week = 0; week < 5; week++) {
+                    let weeklyHours = 0;
+                    for (let i = 0; i < 7; i++) {
+                        const currentDate = new Date(weekStart.getTime());
+                        currentDate.setDate(currentDate.getDate() + i + (week * 7));
+                        const dateStr = this.formatDateForStorage(currentDate);
+                        const shift = this.shifts[dateStr];
+                        
+                        if (shift && currentDate.getMonth() === currentMonth && currentDate.getFullYear() === currentYear) {
+                            weeklyHours += parseFloat(shift.hours) || 0;
+                        }
+                    }
+                    
+                    if (weeklyHours > 24) {
+                        const overageHours = weeklyHours - 24;
+                        overageHoursPay += overageHours * globalHourlyRate * 0.2;
+                    }
+                }
+
+                const totalMonthPay = totalBasePay + totalOvertimePay + overageHoursPay;
 
                 document.getElementById('monthTotalHours').textContent = totalHours.toFixed(1);
                 document.getElementById('monthTotalBasePay').textContent = '€' + totalBasePay.toFixed(2);
                 document.getElementById('monthTotalOvertimePay').textContent = '€' + totalOvertimePay.toFixed(2);
+                document.getElementById('monthTotalOverageHoursPay').textContent = '€' + overageHoursPay.toFixed(2);
                 document.getElementById('monthTotalWeekPay').textContent = '€' + totalMonthPay.toFixed(2);
             },
 
